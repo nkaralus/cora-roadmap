@@ -101,6 +101,44 @@ A sovereign, local-first Linux architecture pairing deterministic kernel enforce
 
 ---
 
+
+## Track A.2: User Session & Desktop Hygiene Runtime (`cora-desktop`)
+
+`cora-desktop` is an unprivileged user-session daemon (`systemd --user`) acting as an invisible desktop technician. While `cora-sentinel` enforces root-level kernel isolation (network severs, cgroup clamps, and floor rules), `cora-desktop` eliminates day-to-day Linux desktop friction by communicating over system/session D-Bus, BlueZ, and the SecretService API.
+
+### Core Modules & Deliverables
+
+* **`cora-desktop/bluetooth` (Peripheral Persistence)**
+  * Binds to `org.bluez` over system D-Bus.
+  * Ensures adapter state is powered (`Powered = True`) on desktop initialization.
+  * Intercepts `InterfacesAdded` and `PropertiesChanged` to mark recognized input devices (mice, keyboards) with `Trusted = True` so connections survive reboot and sleep cycles.
+  * Manages auto-reconnect sequences on input wake-up.
+
+* **`cora-desktop/janitor` (Silent Desktop Hygiene)**
+  * Suppresses intrusive desktop crash dialogs (`apport` notification fatigue).
+  * Automatically purges stale `/var/crash/*` files and crash loops older than 24 hours.
+  * Redirects low-priority background process micro-faults to `~/.local/state/cora/crashes.json` for non-modal inspection.
+
+* **`cora-desktop/keyring` (Credential Auto-Unlock)**
+  * SecretService D-Bus bridge (`org.freedesktop.secrets`).
+  * Resolves the conflict between desktop autologin and browser keyrings (Chrome, Brave, VS Code).
+  * Auto-unlocks the default session collection on login without double-prompting for passwords.
+
+* **`cora-desktop/storage` (Visual Drive Telemetry & Space Guards)**
+  * Polls filesystem capacity (`statvfs`) across all mounted filesystems (`/`, `/home`, secondary NVMe, and external USB storage).
+  * Issues proactive alerts via `cora-hud` before root storage drops below critical margins (< 10% or < 5 GB).
+  * Exposes safe one-click cache pruning (cleans `/var/cache/apt/archives` and `~/.cache/thumbnails` without touching personal state).
+
+* **`cora-desktop/catalog` (Unified App & Game Discovery)**
+  * Monitors standard XDG directories via `inotify` (`/usr/share/applications`, `~/.local/share/applications`, Flatpak, Snap).
+  * Compiles a normalized metadata index (`app_name`, `executable`, `icon`, `category`, `runner_type`).
+  * Auto-indexes Steam and native game installations into a clean launcher manifest for `cora-hud`.
+
+* **`cora-desktop/terminal` (Mule Protocol Safety Net)**
+  * Interactive shell integration hooks (`command_not_found_handle`, pre-exec wrappers).
+  * Pipes malformed commands, recursive accidents, or missing packages through local Qwen GBNF grammar slots.
+  * Provides non-blocking, inline safe syntax correction directly in the terminal session.
+
 ## 4. Engineering Operating Principles
 
 1. **Sovereignty First**: Never introduce a test harness or dependency that relies on third-party license servers, cloud logins, or proprietary desktop launchers.
