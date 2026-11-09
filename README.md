@@ -108,3 +108,44 @@ A sovereign, local-first Linux architecture pairing deterministic kernel enforce
 3. **Fail-Closed**: Any unmeasured metric, broken pipe, missing cgroup scope, or ambiguous telemetry packet registers as an explicit error, never a silent pass.
 4. **Zero-Overhead UI**: Desktop interfaces must consume read-only broadcast feeds without injecting latency into the daemon's kernel polling loops.
 5. **Airlock Boundaries**: External communication channels are untrusted by default; inbound messages must pass through syntax sanitization, and outbound shares must be scrubbed of system telemetry.
+
+Patch To Roadmap:
+1. Principle 6: The Root-Package Invariance Gate
+Why we keep it: This directly codifies the anti-recursion lesson from your coding sessions. It stops AI models from patching downstream security logic when the underlying package manifest or import tree is cracked.
+
+Exact insertion for Section 4 (Engineering Operating Principles):
+
+6. Root-Package Invariance (The Anti-Recursion Gate): Downstream security logic, nftables tap handlers, and cgroup enforcement code must never be modified or evaluated while root package manifests, module import trees, or environment dependencies are unverified. Root imports and syntax ASTs must pass deterministic verification (pytest tests/test_imports.py) before an AI worker is permitted to alter operational logic.
+
+2. The Hot-to-Cold Distillation Loop
+Why we keep it: This formally documents what --dyn-policy and nftsets.py already do: once an out-of-band model evaluation finishes under GBNF lock, the resulting IP/CIDR is committed directly into the kernel's dynamic nftables floor sets (inet cora floor4). Subsequent packets bypass the model and drop in 34–79 µs.
+
+Exact update for Section 2 (System Architecture Diagram):
+
+Plaintext
+[ User Intent / Chat / Ingress ]
+        │
+        ▼
+[ mule-protocol Ingress ] ──► [ Qwen 2.5 3B (Local GBNF) ] ──► [ engine-telemetry-bus ]
+                                                                      │
+┌─────────────────────────────────────────────────────────────────────┘
+▼
+[ Transactional Staging ] ──► [ cora-run / cgroups v2 ]
+                                       │
+                                       ▼
+                     [ cora-sentinel (nftables / NFLOG) ]
+                       ├── Kernel Floor Drop (--floor)
+                       ├── PSI Memory Pressure Feed (uihub.py)
+                       └── Asynchronous Dynamic Policy (--dyn-policy)
+                                 │
+                                 ▼ (Verdict Distillation)
+                            [ Dynamic nftables Floor Sets ] ──┐ (Fast-Path Loop: 34–79 µs)
+                                                              │
+                                                              ▼
+                                                    [ cora-hud Desktop UI ]
+3. Dual-Profile Scope Governance (The "Minecraft Fix")
+Why we keep the principle, not the probe: Rather than building an in-process guest agent (cora-probe) that violates zero-trust out-of-band monitoring, document the kernel-level fix you already implemented in cora-sentinel (commit 7dbd6c1).
+
+Exact insertion under Track A (Desktop Runtime & Live HUD):
+
+Dual-Profile Scope Governance: Strict separation between interactive workloads (profile: app) and autonomous workers (profile: agent). High-allocation workloads like game engines are governed strictly by static launch ceilings and kernel PSI tripwires (memory.pressure), isolating them from heuristic memory-spike detectors to prevent false containment.
